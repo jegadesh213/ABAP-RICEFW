@@ -8,6 +8,7 @@ REPORT z_sf_alv_01.
 TABLES : zzempprac, zzempracdep.
 
 TYPES : BEGIN OF ty_employee,
+          sel,
           emplnum   TYPE zzempprac-emplnum,
           emplname  TYPE zzempprac-emplname,
           empdept   TYPE zzempprac-empdept,
