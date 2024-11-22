@@ -5,14 +5,25 @@
 *&---------------------------------------------------------------------*
 REPORT z_ooalv_04.
 
-TABLES : zzempprac.
+TABLES : zzempprac,zzempracdep.
+
+TYPES : BEGIN OF ty_employee,
+          emplnum   TYPE zzempprac-emplnum,
+          emplname  TYPE zzempprac-emplname,
+          empdept   TYPE zzempprac-empdept,
+          empsalary TYPE zzempprac-empsalary,
+          units     TYPE zzempprac-units,
+
+          doj       TYPE zzempracdep-doj,
+          role      TYPE zzempracdep-role,
+        END OF ty_employee.
 
 SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
   SELECT-OPTIONS : s_num FOR zzempprac-emplnum.
 SELECTION-SCREEN END OF BLOCK b1.
 
-DATA : it_employee TYPE TABLE OF zzempprac,
-       wa_employee TYPE zzempprac.
+DATA : it_employee TYPE TABLE OF ty_employee,
+       wa_employee TYPE ty_employee.
 
 DATA : container TYPE REF TO cl_gui_custom_container,
        grid      TYPE REF TO cl_gui_alv_grid.
@@ -26,7 +37,9 @@ DATA : P_num    TYPE char3,
        P_name   TYPE char30,
        P_dept   TYPE char3,
        P_salary TYPE char21,
-       p_units  TYPE char5.
+       p_units  TYPE char5,
+       p_role   TYPE char10,
+       p_doj    TYPE char10.
 
 
 CLASS handle_events DEFINITION.
@@ -59,7 +72,9 @@ CLASS handle_events IMPLEMENTATION.
     wa_toolbar-quickinfo = 'Refresh'.
     APPEND wa_toolbar TO it_toolbar.
 
+
     APPEND LINES OF it_toolbar TO e_object->mt_toolbar.
+    CLEAR : it_toolbar.
 
   ENDMETHOD.
 
@@ -71,6 +86,7 @@ CLASS handle_events IMPLEMENTATION.
       WHEN 'DELETE'.
         PERFORM delete_data.
       WHEN 'REFRESH'.
+        PERFORM fetch_data.
         CALL METHOD grid->refresh_table_display.
     ENDCASE.
 
@@ -92,7 +108,8 @@ START-OF-SELECTION.
 *& <--  p2        text
 *&---------------------------------------------------------------------*
 FORM fetch_data .
-  SELECT * FROM zzempprac INTO CORRESPONDING FIELDS OF TABLE it_employee WHERE emplnum IN s_num.
+  SELECT a~emplnum a~emplname a~empdept a~empsalary a~units b~doj b~role FROM zzempprac AS a INNER JOIN zzempracdep AS b ON a~emplnum = b~emplnum
+    INTO CORRESPONDING FIELDS OF TABLE it_employee WHERE a~emplnum IN s_num.
 ENDFORM.
 
 *&---------------------------------------------------------------------*
@@ -142,20 +159,65 @@ ENDMODULE.
 *& <--  p2        text
 *&---------------------------------------------------------------------*
 FORM display_data .
-  CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
-    EXPORTING
-*     I_BUFFER_ACTIVE  =
-      i_structure_name = 'zzempprac'
-*     I_CLIENT_NEVER_DISPLAY       = 'X'
-*     I_BYPASSING_BUFFER =
-*     i_internal_tabname = 'it_employee'
-    CHANGING
-      ct_fieldcat      = it_fldcat
-*   EXCEPTIONS
-*     INCONSISTENT_INTERFACE       = 1
-*     PROGRAM_ERROR    = 2
-*     OTHERS           = 3
-    .
+
+  wa_fldcat-fieldname = 'EMPLNUM'.
+  wa_fldcat-seltext = 'Employee Number'.
+  wa_fldcat-reptext = 'Number'.
+  wa_fldcat-outputlen = 8.
+  APPEND wa_fldcat TO it_fldcat.
+
+  wa_fldcat-fieldname = 'EMPLNAME'.
+  wa_fldcat-seltext = 'Employee Name'.
+  wa_fldcat-reptext = 'Name'.
+  wa_fldcat-outputlen = 8.
+  APPEND wa_fldcat TO it_fldcat.
+
+  wa_fldcat-fieldname = 'empdept'.
+  wa_fldcat-seltext = 'Department'.
+  wa_fldcat-reptext = 'Department'.
+  wa_fldcat-outputlen = 12.
+  APPEND wa_fldcat TO it_fldcat.
+
+  wa_fldcat-fieldname = 'empsalary'.
+  wa_fldcat-seltext = 'Salary'.
+  wa_fldcat-reptext = 'Salary'.
+  wa_fldcat-outputlen = 8.
+  APPEND wa_fldcat TO it_fldcat.
+
+  wa_fldcat-fieldname = 'Units'.
+  wa_fldcat-seltext = 'Units'.
+  wa_fldcat-reptext = 'Units'.
+  wa_fldcat-outputlen = 8.
+  APPEND wa_fldcat TO it_fldcat.
+
+  wa_fldcat-fieldname = 'ROLE'.
+  wa_fldcat-seltext = 'Role'.
+  wa_fldcat-reptext = 'Role'.
+  wa_fldcat-outputlen = 12.
+  APPEND wa_fldcat TO it_fldcat.
+
+  wa_fldcat-fieldname = 'DOJ'.
+  wa_fldcat-seltext = 'DOJ'.
+  wa_fldcat-reptext = 'Date of Joining'.
+  wa_fldcat-outputlen = 12.
+  APPEND wa_fldcat TO it_fldcat.
+
+
+*This function is used only to extract the fieldcatlog header from the standard or custom table only not used for custom Types like we declared here
+*  CALL FUNCTION 'LVC_FIELDCATALOG_MERGE'
+*    EXPORTING
+**     I_BUFFER_ACTIVE  =
+*      i_structure_name = 'ty_employee'
+**     I_CLIENT_NEVER_DISPLAY       = 'X'
+**     I_BYPASSING_BUFFER =
+**     i_internal_tabname = 'it_employee'
+*    CHANGING
+*      ct_fieldcat      = it_fldcat
+**   EXCEPTIONS
+**     INCONSISTENT_INTERFACE       = 1
+**     PROGRAM_ERROR    = 2
+**     OTHERS           = 3
+*    .
 
   CALL METHOD grid->set_table_for_first_display
 *    EXPORTING
@@ -206,15 +268,18 @@ MODULE user_command_0300 INPUT.
     WHEN 'BACK' OR 'CANCEL' OR 'EXIT'.
       SET SCREEN 0.
     WHEN 'SAVE'.
-      DATA : wa_employee02 TYPE zzempprac.
+      DATA : wa_employee02 TYPE ty_employee.
 
       wa_employee02-emplnum = P_num .
       wa_employee02-emplname = P_name.
       wa_employee02-empdept = P_dept.
       wa_employee02-empsalary = P_salary.
       wa_employee02-units = P_units.
+      wa_employee02-role = p_role.
+      wa_employee02-doj = p_doj.
 
       INSERT INTO zzempprac VALUES wa_employee02.
+      INSERT INTO zzempracdep VALUES wa_employee02.
 
       IF sy-subrc = 0.
         MESSAGE 'Record added successfully' TYPE 'S'.
